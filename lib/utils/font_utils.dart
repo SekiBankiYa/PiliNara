@@ -103,7 +103,11 @@ abstract final class FontUtils {
     // 引擎完成注册后发出的 fontsChange 会触发文本重新排版。
     await _loadActiveFonts().timeout(
       const Duration(seconds: 2),
-      onTimeout: () {},
+      // `_loadActiveFonts` returns Future<List<void>>; the timeout callback has
+      // to return a compatible value. Returning null throws at runtime, which
+      // aborted font init entirely (imported fonts were never registered and
+      // every Text silently fell back to the default typeface).
+      onTimeout: () => const <void>[],
     );
   }
 

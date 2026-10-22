@@ -22,6 +22,7 @@ import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
+import 'package:PiliPlus/models/glass_tuning.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
@@ -43,12 +44,46 @@ import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/theme_utils.dart';
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 import 'package:path/path.dart' as path;
+import 'package:PiliPlus/pages/setting/pages/glass_tuning_page.dart';
+
+/// Sync the Impeller switch to the native side.
+///
+/// The engine is created before Dart runs, so it cannot read the Hive value;
+/// the native side keeps its own `SharedPreferences` copy and the Hive value
+/// only drives the switch's displayed state.
+Future<void> _setImpeller(bool enabled) async {
+  try {
+    await Utils.channel.invokeMethod<bool>('setImpeller', {'enabled': enabled});
+  } catch (_) {
+    // Desktop / iOS have no such channel; the switch is Android-only there.
+  }
+}
+
+/// Liquid glass needs the Impeller backend it renders with, so one switch
+/// turns on both. Turning glass off deliberately leaves Impeller alone: other
+/// animations and shaders may still rely on it.
+Future<void> _syncLiquidGlass(bool enabled) async {
+  if (!enabled) return;
+  await GStorage.setting.put(SettingBoxKey.enableImpeller, true);
+  await _setImpeller(true);
+}
+
+/// Bottom-bar switches apply live now; this wakes the bar host so it can
+/// cross-fade to the new variant instead of asking for a restart.
+///
+/// The bump is deferred by one frame on purpose: the switch writes the Hive
+/// value first, but that write is asynchronous, so reading `Pref` inside the
+/// same callback could still see the old value and rebuild the *same* bar.
+void _bumpBarMode(bool _) => WidgetsBinding.instance.addPostFrameCallback(
+  (_) => glassBarModeRevision.value++,
+);
 
 List<SettingsModel> get styleSettings => [
   if (PlatformUtils.isDesktop) ...[
@@ -149,12 +184,26 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     needReboot: true,
   ),
-  const SwitchModel(
+  SwitchModel(
     title: '悬浮底栏',
-    leading: Icon(MdiIcons.soundbar),
+    leading: const Icon(MdiIcons.soundbar),
     setKey: SettingBoxKey.floatingNavBar,
     defaultVal: false,
-    needReboot: true,
+    needReboot: false,
+    onChanged: _bumpBarMode,
+  ),
+  SwitchModel(
+    title: '液态玻璃',
+    subtitle: '在悬浮底栏上加边缘折射、发丝边和双高光；开启会同步启用 Impeller 渲染后端。点右侧调节按钮进入细节设置',
+    leading: const Icon(Icons.water_drop_outlined),
+    setKey: SettingBoxKey.navBarLiquidGlass,
+    defaultVal: false,
+    needReboot: false,
+    onChanged: (enabled) {
+      _bumpBarMode(enabled);
+      _syncLiquidGlass(enabled);
+    },
+    onGuide: (context) => Get.to(() => const GlassTuningPage()),
   ),
   SwitchModel(
     title: '显示粉丝勋章',

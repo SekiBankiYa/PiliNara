@@ -131,6 +131,10 @@ dependencies:
   intl: ^0.20.2
   jni: ^1.0.0
   json_annotation: ^4.11.0
+  # Rounded-rect refraction + edge highlight shaders behind the liquid glass
+  # bottom bar. Vendored: it is a small port with unpublished shader assets.
+  kyant_glass:
+    path: third_party/kyant_glass
   live_photo_maker: ^0.0.6
   logger: ^2.5.0
   material_color_utilities: ^0.13.0

@@ -3,10 +3,12 @@ import 'dart:io';
 import 'package:PiliPlus/common/style.dart';
 import 'package:PiliPlus/common/widgets/floating_navigation_bar.dart';
 import 'package:PiliPlus/common/widgets/flutter/pop_scope.dart';
+import 'package:PiliPlus/common/widgets/glass/kyant_glass_bar.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/main_layout.dart';
 import 'package:PiliPlus/common/widgets/route_aware_mixin.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
+import 'package:PiliPlus/models/glass_tuning.dart';
 import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
@@ -159,60 +161,30 @@ class _MainAppState extends PopScopeState<MainApp>
   Widget? get _bottomNav {
     Widget? bottomNav;
     if (_mainController.navigationBars.length > 1) {
-      if (_mainController.floatingNavBar) {
-        bottomNav = Obx(
-          () => FloatingNavigationBar(
-            onDestinationSelected: _mainController.setIndex,
-            selectedIndex: _mainController.selectedIndex.value,
-            destinations: _mainController.navigationBars
-                .map(
-                  (e) => FloatingNavigationDestination(
-                    label: e.label,
-                    icon: _buildIcon(type: e),
-                    selectedIcon: _buildIcon(type: e, selected: true),
-                  ),
-                )
-                .toList(),
+      // The bar variant is switched at runtime from the settings page, so the
+      // host cross-fades to the new one instead of asking for a restart.
+      bottomNav = ValueListenableBuilder<int>(
+        valueListenable: glassBarModeRevision,
+        builder: (context, _, _) => AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: .94, end: 1).animate(animation),
+              child: child,
+            ),
           ),
-        );
-      } else if (_mainController.enableMYBar) {
-        bottomNav = Obx(
-          () => NavigationBar(
-            maintainBottomViewPadding: true,
-            onDestinationSelected: _mainController.setIndex,
-            selectedIndex: _mainController.selectedIndex.value,
-            destinations: _mainController.navigationBars
-                .map(
-                  (e) => NavigationDestination(
-                    label: e.label,
-                    icon: _buildIcon(type: e),
-                    selectedIcon: _buildIcon(type: e, selected: true),
-                  ),
-                )
-                .toList(),
+          child: KeyedSubtree(
+            key: ValueKey(
+              'bar-${Pref.floatingNavBar}-${Pref.navBarLiquidGlass}-'
+              '${_mainController.enableMYBar}',
+            ),
+            child: _barWidget(),
           ),
-        );
-      } else {
-        bottomNav = Obx(
-          () => BottomNavigationBar(
-            currentIndex: _mainController.selectedIndex.value,
-            onTap: _mainController.setIndex,
-            iconSize: 16,
-            selectedFontSize: 12,
-            unselectedFontSize: 12,
-            type: .fixed,
-            items: _mainController.navigationBars
-                .map(
-                  (e) => BottomNavigationBarItem(
-                    label: e.label,
-                    icon: _buildIcon(type: e),
-                    activeIcon: _buildIcon(type: e, selected: true),
-                  ),
-                )
-                .toList(),
-          ),
-        );
-      }
+        ),
+      );
 
       if (_mainController.hideBottomBar) {
         if (_mainController.barOffset case final barOffset?) {
@@ -240,6 +212,91 @@ class _MainAppState extends PopScopeState<MainApp>
     }
 
     return bottomNav;
+  }
+
+  Widget _barWidget() {
+    if (_mainController.floatingNavBar) {
+      final glass = Pref.navBarLiquidGlass;
+      return Obx(() {
+        final bars = _mainController.navigationBars;
+        final selected = _mainController.selectedIndex.value;
+        if (!glass) {
+          return FloatingNavigationBar(
+            onDestinationSelected: _mainController.setIndex,
+            selectedIndex: selected,
+            destinations: bars
+                .map(
+                  (e) => FloatingNavigationDestination(
+                    label: e.label,
+                    icon: _buildIcon(type: e),
+                    selectedIcon: _buildIcon(type: e, selected: true),
+                  ),
+                )
+                .toList(),
+          );
+        }
+        // Liquid glass owns its own shell (refraction, edge highlight), so it
+        // is a sibling of the floating bar rather than a decoration on it.
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: 8 + MediaQuery.viewPaddingOf(context).bottom,
+          ),
+          child: KyantGlassBar(
+            selectedIndex: selected,
+            onSelected: _mainController.setIndex,
+            width: (bars.length * 86).toDouble(),
+            tabs: bars
+                .map(
+                  (e) => GlassBarTab(
+                    label: e.label,
+                    iconBuilder: (context, lit, color) => IconTheme(
+                      data: IconThemeData(color: color, size: 24),
+                      child: _buildIcon(type: e, selected: lit),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      });
+    } else if (_mainController.enableMYBar) {
+      return Obx(
+        () => NavigationBar(
+          maintainBottomViewPadding: true,
+          onDestinationSelected: _mainController.setIndex,
+          selectedIndex: _mainController.selectedIndex.value,
+          destinations: _mainController.navigationBars
+              .map(
+                (e) => NavigationDestination(
+                  label: e.label,
+                  icon: _buildIcon(type: e),
+                  selectedIcon: _buildIcon(type: e, selected: true),
+                ),
+              )
+              .toList(),
+        ),
+      );
+    } else {
+      return Obx(
+        () => BottomNavigationBar(
+          currentIndex: _mainController.selectedIndex.value,
+          onTap: _mainController.setIndex,
+          iconSize: 16,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          type: .fixed,
+          items: _mainController.navigationBars
+              .map(
+                (e) => BottomNavigationBarItem(
+                  label: e.label,
+                  icon: _buildIcon(type: e),
+                  activeIcon: _buildIcon(type: e, selected: true),
+                ),
+              )
+              .toList(),
+        ),
+      );
+    }
   }
 
   Widget _sideBar() {

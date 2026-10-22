@@ -189,6 +189,10 @@ class SwitchModel extends SettingsModel {
   final bool needReboot;
   final void Function(BuildContext context)? onTap;
 
+  /// Extra trailing button (e.g. "open the detail page") shown next to the
+  /// switch. Only rendered while the switch is on.
+  final void Function(BuildContext context)? onGuide;
+
   const SwitchModel({
     super.subtitle,
     super.leading,
@@ -200,6 +204,7 @@ class SwitchModel extends SettingsModel {
     this.onChanged,
     this.needReboot = false,
     this.onTap,
+    this.onGuide,
   });
 
   const SwitchModel.split({
@@ -208,6 +213,7 @@ class SwitchModel extends SettingsModel {
     this.needReboot = false,
     this.onChanged,
     this.onTap,
+    this.onGuide,
   }) : title = null;
 
   @override
@@ -225,6 +231,7 @@ class SwitchModel extends SettingsModel {
     needReboot: needReboot,
     leading: leading,
     onTap: onTap,
+    onGuide: onGuide,
     contentPadding: contentPadding,
     titleStyle: titleStyle,
   );

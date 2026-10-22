@@ -14,6 +14,10 @@ class SetSwitchItem extends StatefulWidget {
   final bool needReboot;
   final Widget? leading;
   final void Function(BuildContext context)? onTap;
+
+  /// Extra trailing button (e.g. "open the detail page"), shown only while the
+  /// switch is on.
+  final void Function(BuildContext context)? onGuide;
   final EdgeInsetsGeometry? contentPadding;
   final TextStyle? titleStyle;
   final bool isSplit;
@@ -28,6 +32,7 @@ class SetSwitchItem extends StatefulWidget {
     this.needReboot = false,
     this.leading,
     this.onTap,
+    this.onGuide,
     this.contentPadding,
     this.titleStyle,
     this.isSplit = false,
@@ -131,6 +136,39 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
       );
     }
 
-    return child(switchBtn);
+    final guide = widget.onGuide;
+    if (guide == null) {
+      return child(switchBtn);
+    }
+
+    // The switch must keep its position in the tree: mounting it inside a
+    // different row while `val` flips makes Flutter rebuild its State, so the
+    // thumb jumps to the new side instead of animating. Keeping one always-on
+    // Row and fading the button in place keeps the animation intact.
+    return child(
+      Row(
+        mainAxisSize: .min,
+        children: [
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 180),
+            opacity: val ? 1 : 0,
+            child: IgnorePointer(
+              ignoring: !val,
+              child: IconButton(
+                onPressed: () => guide(context),
+                icon: const Icon(Icons.tune_rounded),
+                iconSize: 20,
+                tooltip: '进入细节设置',
+                style: IconButton.styleFrom(
+                  tapTargetSize: .shrinkWrap,
+                  visualDensity: .compact,
+                ),
+              ),
+            ),
+          ),
+          switchBtn,
+        ],
+      ),
+    );
   }
 }

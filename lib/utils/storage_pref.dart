@@ -30,6 +30,7 @@ import 'package:PiliPlus/models/common/video/live_quality.dart';
 import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
+import 'package:PiliPlus/models/glass_tuning.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/models/user/info.dart';
 import 'package:PiliPlus/pages/setting/pages/fullscreen_sc_size.dart'
@@ -1637,6 +1638,42 @@ abstract final class Pref {
 
   static bool get floatingNavBar =>
       _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
+
+  static bool get navBarLiquidGlass =>
+      _setting.get(SettingBoxKey.navBarLiquidGlass, defaultValue: false);
+
+  /// Bottom-bar glass parameters. Stored as one JSON blob so a look can be
+  /// copied, reset and shared as a unit.
+  static GlassTuning get glassTuning =>
+      _glassTuningCache ??= GlassTuning.tryDecode(
+        _setting.get(SettingBoxKey.glassTuning, defaultValue: ''),
+      ) ??
+      kGlassPresets[1].values.clone();
+
+  static GlassTuning? _glassTuningCache;
+
+  static void setGlassTuning(GlassTuning value) {
+    _glassTuningCache = value.clone();
+    _setting.put(SettingBoxKey.glassTuning, value.encode());
+    glassTuningRevision.value++;
+  }
+
+  /// Presets saved from the tuning page ("保存当前").
+  static List<GlassCustomPreset> get glassCustomPresets =>
+      _glassCustomPresetsCache ??= GlassCustomPreset.decodeAll(
+        _setting.get(SettingBoxKey.glassCustomPresets, defaultValue: ''),
+      );
+
+  static List<GlassCustomPreset>? _glassCustomPresetsCache;
+
+  static void setGlassCustomPresets(List<GlassCustomPreset> value) {
+    _glassCustomPresetsCache = List.of(value);
+    _setting.put(
+      SettingBoxKey.glassCustomPresets,
+      GlassCustomPreset.encodeAll(value),
+    );
+    glassTuningRevision.value++;
+  }
 
   static bool get enableCurrentPageRefresh => _setting.get(
     SettingBoxKey.enableCurrentPageRefresh,

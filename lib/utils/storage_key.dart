@@ -197,6 +197,13 @@ abstract final class SettingBoxKey {
       showDynDispute = 'showDynDispute',
       touchSlopH = 'touchSlopH',
       floatingNavBar = 'floatingNavBar',
+
+      /// Liquid glass bottom bar: the switch itself, the tuning JSON blob and
+      /// the presets the user saved on the tuning page.
+      navBarLiquidGlass = 'navBarLiquidGlass',
+      enableImpeller = 'enableImpeller',
+      glassTuning = 'glassTuning',
+      glassCustomPresets = 'glassCustomPresets',
       enableCurrentPageRefresh = 'enableCurrentPageRefresh',
       mixWithOthers = 'mixWithOthers',
       removeSafeArea = 'removeSafeArea',

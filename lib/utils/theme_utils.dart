@@ -36,7 +36,13 @@ abstract final class ThemeUtils {
 
     TextTheme? textTheme;
     if (fontWeight != .normal) {
-      final textStyle = TextStyle(fontWeight: fontWeight);
+      // Keep the family here too: this TextTheme is merged on top of the
+      // theme defaults, so a weight-only style would not override the family
+      // but a stray copy of it could drop it.
+      final textStyle = TextStyle(
+        fontWeight: fontWeight,
+        fontFamily: fontFamily,
+      );
       textTheme = TextTheme(
         displayLarge: textStyle,
         displayMedium: textStyle,

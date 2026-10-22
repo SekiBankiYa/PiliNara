@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/models/common/setting_type.dart';
+import 'package:PiliPlus/models/glass_tuning.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -25,10 +26,26 @@ class _CommonSettingState extends State<CommonSetting> {
     settings = widget.settingType.settings;
   }
 
+  /// The bottom-bar switches write their value while this page is on screen;
+  /// the tuning row ("液态玻璃细节") has to appear/disappear right away, so the
+  /// list is rebuilt when the bar mode changes.
+  void _onBarModeChanged() {
+    if (mounted) {
+      setState(_initSetting);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _initSetting();
+    glassBarModeRevision.addListener(_onBarModeChanged);
+  }
+
+  @override
+  void dispose() {
+    glassBarModeRevision.removeListener(_onBarModeChanged);
+    super.dispose();
   }
 
   @override
