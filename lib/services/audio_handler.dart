@@ -18,18 +18,20 @@ import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
+import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:collection/collection.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:get/get_core/src/get_main.dart';
 import 'package:get/get_instance/src/extension_instance.dart';
 import 'package:path/path.dart' as path;
 
-Future<VideoPlayerServiceHandler> initAudioService() {
-  return AudioService.init(
+Future<VideoPlayerServiceHandler> initAudioService() async {
+  final handler = await AudioService.init(
     builder: VideoPlayerServiceHandler.new,
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.example.pilinara.audio',
@@ -41,7 +43,45 @@ Future<VideoPlayerServiceHandler> initAudioService() {
       androidNotificationChannelDescription: 'Media notification channel',
       androidNotificationIcon: 'drawable/ic_notification_icon',
     ),
-  );
+   if (await _needRemoteVolumeControl()) {
+    handler.androidPlaybackInfo.add(
+      RemoteAndroidPlaybackInfo(
+        volumeControlType: AndroidVolumeControlType.fixed,
+        maxVolume: 100,
+        volume: 50,
+      ),
+    );
+  }
+  return handler;
+}
+
+
+/// 是否要把 MediaSession 声明成「远端播放 + FIXED 音量控制」。
+///
+/// 背景：OriginOS/Funtouch 的「再次按下音量键把音量条收起成细条」只在系统默认
+/// 音量处理路径上生效。audio_service 默认把 MediaSession 注册成本地播放类型
+/// (PLAYBACK_TYPE_LOCAL)，而 MediaSessionRecord.canHandleVolumeKey() 对本地会话
+/// 直接返回 true，于是音量键被 dispatchVolumeKeyEventToSessionAsSystemService 派发
+/// 给会话自身，走 AudioService 的 session 音量分支(adjustStreamVolume)，音量条每次
+/// 都重新展开、永远无法沉浸。声明成远端 + FIXED 后 canHandleVolumeKey() 返回 false，
+/// 系统回退到默认音量处理，音量条即可正常收起。
+///
+/// 限制：上述回退依赖 API 36+ 的 dispatchVolumeKeyEventToSessionAsSystemService()
+/// 内部对 canHandleVolumeKey() 的检查（logcat: "Fallbacks to the default handling"）。
+/// Android 14/15 的该入口不检查，会话仍会收到这次电量键派发，然后按「远端 + FIXED」
+/// 丢弃音量调节并调用 notifyRemoteVolumeChanged，表现为音量条变成「投屏」样式、
+/// 音量键失效（PiliPlus issue #3433 的真机复现）。因此这里限定 OriginOS(vivo/iQOO)
+/// 且 API >= 36，其余情况保持原有行为不受影响。
+Future<bool> _needRemoteVolumeControl() async {
+  if (!Platform.isAndroid || DeviceUtils.sdkInt < 36) return false;
+  try {
+    final info = await DeviceInfoPlugin().androidInfo;
+    final brand = '${info.brand} ${info.manufacturer} ${info.model}'
+        .toLowerCase();
+    return brand.contains('vivo') || brand.contains('iqoo');
+  } catch (_) {
+    return false;
+  }
 }
 
 typedef _StatusConfig = (
